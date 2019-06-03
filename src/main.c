@@ -61,7 +61,7 @@ handle_option(char *arg)
 // Reads a line from the input stream and extracts the
 // PC and Outcome of a branch
 //
-// Returns True if Successful 
+// Returns True if Successful
 //
 int
 read_branch(uint32_t *pc, uint8_t *outcome)
@@ -136,6 +136,7 @@ main(int argc, char *argv[])
   // Cleanup
   fclose(stream);
   free(buf);
+  free_mem();
 
   return 0;
 }
