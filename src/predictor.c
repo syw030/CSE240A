@@ -43,24 +43,30 @@ int ghistory;
 int* g_2bits;
 int g_size;
 int g_mask;
-int pc_g;
+int g_index; // index in g_2bits table
+int g_predict;
 
 // local history
 int* lhistory_table;
 int* l_2bits;
 int l_size;
 int l_mask;
+int lhistory_mask;
 int l_table_size;
+int pc_l;
+int l_index; // index in l_2bits table
+int l_predict;
+
 // tournament 2-bit selector
-int tour_select;
-int pc_l
+int* choice_predictor;
 
 void
 free_mem() {
-  free(gshare_2bits);
+  free(g_2bits);
   if (bpType == TOURNAMENT) {
     free(lhistory_table);
-    free(l_2bits)
+    free(l_2bits);
+    free(choice_predictor);
   }
 }
 
@@ -76,45 +82,60 @@ init_predictor()
   //
   //TODO: Initialize Branch Predictor Data Structures
   //
-  if (bpType == GSHARE) {
-    // init global
-    ghistory = 0;
-    gshare_size = (int) pow(2, ghistoryBits);
-    gshare_2bits = (int* ) malloc(gshare_size * sizeof(int));
-    gshare_mask = 0;
-    for (int i = 0; i < ghistoryBits; i ++) {
-      gshare_mask <<= 1;
-      gshare_mask += 1;
-    }
-    for (int i = 0; i < gshare_size; i ++) gshare_2bits[i] = WN;
-  }
-  elif (bpType == TOURNAMENT) {
-    // init global
-    ghistory = 0;
-    g_size = (int) pow(2, ghistoryBits);
-    g_2bits = (int* ) malloc(g_size * sizeof(int));
-    g_mask = 0;
-    for (int i = 0; i < ghistoryBits; i ++) {
-      g_mask <<= 1;
-      g_mask += 1;
-    }
-    for (int i = 0; i < g_size; i ++) g_2bits[i] = WN;
+  switch (bpType) {
+    case GSHARE:
+      // init global
+      ghistory = 0;
+      g_size = (int) pow(2, ghistoryBits);
+      g_2bits = (int* ) malloc(g_size * sizeof(int));
+      g_mask = 0;
+      for (int i = 0; i < ghistoryBits; i ++) {
+        g_mask <<= 1;
+        g_mask += 1;
+      }
+      for (int i = 0; i < g_size; i ++) g_2bits[i] = WN;
+      break;
 
-    // init local
-    lhistoryBits, &pcIndexBits
-    l_table_size = (int *) pow(2, pcIndexBits);
-    l_size = (int) pow(2, lhistoryBits);
-    lhistory_table = (int *) calloc(l_table_size, sizeof(int));
-    l_2bits = (int* ) malloc(l_size * sizeof(int));
-    l_mask = 0;
-    for (int i = 0; i < pcIndexBits; i ++) {
-      l_mask <<= 1;
-      l_mask += 1;
-    }
-    for (int i = 0; i < l_size; i ++) l_2bits[i] = WN;
+    case TOURNAMENT:
+      // init global
+      ghistory = 0;
+      g_size = (int) pow(2, ghistoryBits);
+      g_2bits = (int* ) malloc(g_size * sizeof(int));
+      g_mask = 0;
+      for (int i = 0; i < ghistoryBits; i ++) {
+        g_mask <<= 1;
+        g_mask += 1;
+      }
+      for (int i = 0; i < g_size; i ++) g_2bits[i] = WN;
+      printf("global init complete. \n");
 
-    // init selector
-    tour_select = 0;
+      // init local
+      l_table_size = (int) pow(2, pcIndexBits);
+      l_size = (int) pow(2, lhistoryBits);
+      lhistory_table = (int *) calloc(l_table_size, sizeof(int));
+      l_2bits = (int* ) malloc(l_size * sizeof(int));
+      l_mask = 0;
+      lhistory_mask = 0;
+      for (int i = 0; i < pcIndexBits; i ++) {
+        l_mask <<= 1;
+        l_mask += 1;
+      }
+      for (int i = 0; i < lhistoryBits; i ++) {
+        lhistory_mask <<= 1;
+        lhistory_mask += 1;
+      }
+      for (int i = 0; i < l_size; i ++) l_2bits[i] = WN;
+      printf("local init complete. \n");
+
+      // init choice predictor
+      choice_predictor = (int *) malloc(g_size * sizeof(int));
+      for (int i = 0; i < g_size; i ++) choice_predictor[i] = WN;
+      printf("all init complete. \n");
+
+      break;
+
+    default:
+      break;
   }
 }
 
@@ -133,21 +154,30 @@ make_prediction(uint32_t pc)
   switch (bpType) {
     case STATIC:
       return TAKEN;
+
     case GSHARE:
-      pc &= gshare_mask;
-      ghistory &= gshare_mask;
+      pc &= g_mask;
+      ghistory &= g_mask;
       pc = pc ^ ghistory;
       // printf("index: %d", pc);
-      return gshare_2bits[pc] > WN;
+      return g_2bits[pc] > WN;
+
     case TOURNAMENT:
-      pc_g = pc & g_mask;
-      pc_l = pc & lhistory_table l_mask;
+      g_index = pc & g_mask;
+      pc_l = pc & l_mask;
+      l_index = lhistory_table[pc_l] & lhistory_mask;
+
+      // get predictions
+      g_predict = g_2bits[g_index] > WN;
+      l_predict = l_2bits[l_index] > WN;
+      // printf("g_index: %d, l_index: %d \n", g_predict, l_predict);
 
       // select
-      if tour_select > 1 // global if 11, 10
-        return g_2bits[pc_g] > WN;
-      else
-        return g_2bits[pc_g] > WN;
+      if (choice_predictor[g_index] > WN) // global if 11, 10
+        return g_predict;
+      else               // local if 01, 00
+        return l_predict;
+
     case CUSTOM:
     default:
       break;
@@ -169,22 +199,58 @@ train_predictor(uint32_t pc, uint8_t outcome)
   //
   switch (bpType) {
     case GSHARE:
-      pc &= gshare_mask;
-      ghistory &= gshare_mask;
+      pc &= g_mask;
+      ghistory &= g_mask;
       pc = pc ^ ghistory;
       if (outcome == TAKEN) {
         // printf("prev: %d", gshare_2bits[pc]);
-        gshare_2bits[pc] = fmin(3, gshare_2bits[pc] + 1);
+        g_2bits[pc] = fmin(3, g_2bits[pc] + 1);
         // printf("after: %d", gshare_2bits[pc]);
       }
       else {
         // printf("index: %d ", pc);
         // printf("prev: %d ", gshare_2bits[pc]);
-        gshare_2bits[pc] = fmax(0, gshare_2bits[pc] - 1);
+        g_2bits[pc] = fmax(0, g_2bits[pc] - 1);
         // printf("after: %d \n", gshare_2bits[pc]);
       }
       ghistory <<= 1;
       ghistory += outcome;
+      break;
+
+    case TOURNAMENT:
+      g_index = pc & g_mask;
+      pc_l = pc & l_mask;
+      l_index = lhistory_table[pc_l] & lhistory_mask;
+
+      // update global
+      if (outcome == TAKEN) {
+        g_2bits[g_index] = fmin(3, g_2bits[g_index] + 1);
+      }
+      else {
+        g_2bits[g_index] = fmax(0, g_2bits[g_index] - 1);
+      }
+      ghistory <<= 1;
+      ghistory += outcome;
+
+      // update local
+      if (outcome == TAKEN) {
+        l_2bits[l_index] = fmin(3, l_2bits[l_index] + 1);
+      }
+      else {
+        l_2bits[l_index] = fmax(0, l_2bits[l_index] - 1);
+      }
+      lhistory_table[pc_l] <<= 1;
+      lhistory_table[pc_l] += outcome;
+
+      // update choice predictor
+      // counter change = I(?global correct) - I(?local correct)
+      choice_predictor[g_index] = choice_predictor[g_index] + (g_predict == outcome) - (l_predict == outcome);
+      // printf("inc_dec = %d", (g_predict == outcome) - (l_predict == outcome));
+      choice_predictor[g_index] = fmin(3, choice_predictor[g_index]);
+      choice_predictor[g_index] = fmax(0, choice_predictor[g_index]);
+      
+      break;
+
     default:
       break;
   }
