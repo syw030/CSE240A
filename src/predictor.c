@@ -129,7 +129,7 @@ init_predictor()
 
       // init choice predictor
       choice_predictor = (int *) malloc(g_size * sizeof(int));
-      for (int i = 0; i < g_size; i ++) choice_predictor[i] = WN;
+      for (int i = 0; i < g_size; i ++) choice_predictor[i] = WT;
       printf("all init complete. \n");
 
       break;
@@ -163,7 +163,7 @@ make_prediction(uint32_t pc)
       return g_2bits[pc] > WN;
 
     case TOURNAMENT:
-      g_index = pc & g_mask;
+      g_index = ghistory & g_mask;
       pc_l = pc & l_mask;
       l_index = lhistory_table[pc_l] & lhistory_mask;
 
@@ -218,7 +218,7 @@ train_predictor(uint32_t pc, uint8_t outcome)
       break;
 
     case TOURNAMENT:
-      g_index = pc & g_mask;
+      g_index = ghistory & g_mask;
       pc_l = pc & l_mask;
       l_index = lhistory_table[pc_l] & lhistory_mask;
 
@@ -248,7 +248,7 @@ train_predictor(uint32_t pc, uint8_t outcome)
       // printf("inc_dec = %d", (g_predict == outcome) - (l_predict == outcome));
       choice_predictor[g_index] = fmin(3, choice_predictor[g_index]);
       choice_predictor[g_index] = fmax(0, choice_predictor[g_index]);
-      
+
       break;
 
     default:
