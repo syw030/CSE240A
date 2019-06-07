@@ -14,10 +14,10 @@
   perceptron implementation
 =================================*/
 // configs use: page 384 2KB budget entry
-#define NUM_PERCEPTRON 55
-#define GLOBAL_BITS 31
-#define LOCAL_BITS 5
-#define LOCALH_SIZE 11 // calculated: lh size = 2864 > 2^11
+#define NUM_PERCEPTRON 200//55
+#define GLOBAL_BITS 31//30 //31
+#define LOCAL_BITS 5//10 //5
+#define LOCALH_SIZE 11//15 //11 // calculated: lh size = 2864 > 2^11
 #define INIT_CONST 0
 #define THRESHOLD floor(1.93 * (GLOBAL_BITS + LOCAL_BITS) + 14)
 
@@ -38,13 +38,13 @@ init_perceptron() {
       weights_table[i * weight_len + j] = INIT_CONST;
     }
   }
-  input = (int8_t *) malloc(weight_len * sizeof(int8_t));
-  input[weight_len - 1] = 1;
+  input = (int8_t *) malloc((weight_len - 1) * sizeof(int8_t));
 }
 
 uint8_t
 perceptron_predicit(int idx, int globalh, int localh) {
   output = 0;
+  // printf("idx: %d \n", idx);
 
   /* TODO: save globalh, localh in +1, -1 form for training*/
   for (int i = 0;i < GLOBAL_BITS + LOCAL_BITS;i++) {
@@ -56,11 +56,12 @@ perceptron_predicit(int idx, int globalh, int localh) {
       input[i] = (int8_t) (localh & 1) * 2 - 1;
       localh >>= 1;
     }
-    output += (int) input[i] * weights_table[idx * weight_len + i]; // 0 -> -1
+    output += (int) (input[i] * weights_table[idx * weight_len + i]);
   }
   output += weights_table[(idx + 1) * weight_len - 1]; // bias
-  last_predict = (uint8_t) output >= 0;
+  last_predict = (uint8_t) (output >= 0);
   // printf("output: %d \n", output);
+  // printf("last_predict: %d \n", (int) last_predict);
 
   return last_predict;
 }
@@ -68,15 +69,21 @@ perceptron_predicit(int idx, int globalh, int localh) {
 void
 train_perceptron(int idx, uint8_t outcome) {
   int8_t signed_outcome = ((int8_t) outcome * 2) - 1;
+  // printf("signed outcome: %d ", (int) signed_outcome);
+  // printf("last predict: %d, outcome: %d \n", (int) last_predict, (int) outcome);
+  // printf("output size: %d ", abs(output));
   if (abs(output) <= THRESHOLD || last_predict != outcome) {
     for (int i = 0;i < GLOBAL_BITS + LOCAL_BITS;i++) {
+      // printf("%d ", (int) input[i]);
       if (input[i] == signed_outcome)
         weights_table[idx * weight_len + i] += 1; // unsigned int is self-modula in c++
       else
         weights_table[idx * weight_len + i] -= 1; // unsigned int is self-modula in c++
     }
     weights_table[(idx + 1) * weight_len - 1] += signed_outcome; // update bias weight
+    // printf("%d weights updated. \n", idx);
   }
+  // printf(" \n");
 }
 
 
