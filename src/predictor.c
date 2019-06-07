@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <math.h>
 #include "predictor.h"
+#include "perceptron_bp.c"
 
 //
 // TODO:Student Information
@@ -62,11 +63,24 @@ int* choice_predictor;
 
 void
 free_mem() {
-  free(g_2bits);
-  if (bpType == TOURNAMENT) {
-    free(lhistory_table);
-    free(l_2bits);
-    free(choice_predictor);
+  switch (bpType) {
+    case GSHARE:
+      free(g_2bits);
+      break;
+
+    case TOURNAMENT:
+      free(g_2bits);
+      free(lhistory_table);
+      free(l_2bits);
+      free(choice_predictor);
+      break;
+
+    case CUSTOM:
+      free(lhistory_table);
+      free(input);
+      free(weights_table);
+    default:
+      break;
   }
 }
 
@@ -107,7 +121,7 @@ init_predictor()
         g_mask += 1;
       }
       for (int i = 0; i < g_size; i ++) g_2bits[i] = WN;
-      printf("global init complete. \n");
+      // printf("global init complete. \n");
 
       // init local
       l_table_size = (int) pow(2, pcIndexBits);
@@ -125,13 +139,35 @@ init_predictor()
         lhistory_mask += 1;
       }
       for (int i = 0; i < l_size; i ++) l_2bits[i] = WN;
-      printf("local init complete. \n");
+      // printf("local init complete. \n");
 
       // init choice predictor
       choice_predictor = (int *) malloc(g_size * sizeof(int));
       for (int i = 0; i < g_size; i ++) choice_predictor[i] = WT;
-      printf("all init complete. \n");
+      // printf("all init complete. \n");
 
+      break;
+
+    case CUSTOM:
+      // printf("init perceptron \n");
+      // init global
+      ghistory = 0;
+
+      // init local history table
+      l_table_size = (int) pow(2, LOCALH_SIZE);
+      lhistory_table = (int *) calloc(l_table_size, sizeof(int));
+
+      l_mask = 0;
+      lhistory_mask = 0;
+      for (int i = 0; i < LOCALH_SIZE; i ++) {
+        l_mask <<= 1;
+        l_mask += 1;
+      }
+
+      /* NOTE: no need for ghistory_mask, or
+         lhistory_mask, perceptron functions take care of it */
+
+      init_perceptron();
       break;
 
     default:
@@ -179,6 +215,8 @@ make_prediction(uint32_t pc)
         return l_predict;
 
     case CUSTOM:
+      return perceptron_predicit(pc % NUM_PERCEPTRON, ghistory, lhistory_table[pc & l_mask]);
+
     default:
       break;
   }
@@ -249,6 +287,19 @@ train_predictor(uint32_t pc, uint8_t outcome)
       choice_predictor[g_index] = fmin(3, choice_predictor[g_index]);
       choice_predictor[g_index] = fmax(0, choice_predictor[g_index]);
 
+      break;
+
+    case CUSTOM:
+      // update global history
+      ghistory <<= 1;
+      ghistory += outcome;
+
+      // update local history
+      lhistory_table[pc & l_mask] <<= 1;
+      lhistory_table[pc & l_mask] += outcome;
+
+      // train perceptron
+      train_perceptron(pc % NUM_PERCEPTRON, outcome);
       break;
 
     default:
