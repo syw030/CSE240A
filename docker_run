@@ -1,0 +1,5 @@
+on ubuntu:
+sudo docker run --rm -it -v ~/Documents/CSE240A:/CSE240A prodromou87/ucsd_cse240a
+
+run commands:
+bunzip2 -kc ../traces/int_1.bz2 | ./predictor --gshare:10

@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <math.h>
 
+// perceptron params
 // hard code number of perceptrons: in power of 2
 // configs use: page 384 2KB budget entry
 #define NUM_PERCEPTRON 55
